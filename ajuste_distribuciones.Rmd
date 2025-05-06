@@ -1,0 +1,169 @@
+---
+title: 'Actividad 1: Ajuste de distribuciones'
+author: "María del Carmen Rojas Moreno"
+date: "02/04/2025"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## La práctica consiste en seleccionar un conjunto de datos con al menos 30 observaciones y ajustarlo a alguna de las distribuciones estudiadas.
+
+1.  Describir estadísticamente los datos (principales medidas de posición y dispersión e histograma).
+2.  Justificar la selección de distribuciones discretas o continuas.
+3.  Ajustar los datos a las distribuciones seleccionadas (al menos dos distribuciones).
+4.  Análisis del ajuste (contraste de medidas de bondad y criterios de informe).
+5.  Conclusión final (seleccionar de forma justificada una de las distribuciones si es posible y calculo de algún cuantil con su interpretación).
+
+### Previo: Paquetes necesarios
+
+```{r}
+library(magrittr)
+library(dplyr) 
+library(actuar)
+library(fitdistrplus) #install.packages("fitdistrplus")
+library(tidyverse)
+library(stats)
+library(univariateML)
+library(readxl)
+library(MASS)
+library(survival)
+library(e1071) 
+```
+
+### 1. Describir estadísticamente los datos (principales medidas de posición y dispersión e histograma).
+
+El conjunto de datos escogido recopila información de 2000 usuarios sobre el tráfico web de una página concreta. La variable que queremos ajustar es "tiempo" ("Time.on.Page" en el conjunto de datos), que nos indica el tiempo total que un usuario pasa en el sitio web medido en minutos.
+
+```{r}
+data <- read.csv("website_wata.csv")
+tiempo <-data$Time.on.Page
+```
+
+Podemos hacer un análisis descriptivo de las datos usando las siguientes funciones:
+
+```{r}
+summary(tiempo)
+skewness(tiempo)
+kurtosis(tiempo)
+var(tiempo)
+sd(tiempo)
+```
+
+La función $summary$ nos dice que la $media = 4.027439$ es mayor que la $mediana = 3.31532$, esto indica que hay asimetría positiva, es decir, la cola derecha es más larga que la izquierda. Además, como $skewness(tiempo) = 1.485632 > 0$, nos indica también que la distribución de los datos tiene una asimetría positiva.
+
+Por otro lado, como $kurtosis(tiempo) = 3.431247 > 3$, los datos tienen una distribución con colas más pesadas y una mayor concentración de valores en la media si la comparamos con una distribución normal.
+
+Asímismo, la varianza y la desviación típica indican que hay bastante variabilidad en los datos. Además, la función $summary$ nos dice que los datos van de 0.06852 a 24.79618 (son mayores estrictos que cero).
+
+A continuación representamos el histograma de los datos.
+
+```{r}
+hist(tiempo, main="Histograma del Tiempo en la página web", 
+     xlab= "Tiempo en minutos", ylab = "Frecuencia", col="lightcoral")
+```
+
+La gráfica que se muestra encaja con la descripción estadística que hemos realizado antes.
+
+### 2. Justificar la selección de distribuciones discretas o continuas.
+
+Nuestra variable es el tiempo total que un usuario pasa en el sitio web medido en minutos, seleccionaremos distribuciones continuas para el ajuste, pues el tiempo no toma valores discretos.
+
+Para el ajuste probaremos distribuciones como la de Pareto, la log-normal y la de Weibull. La distribución exponencial la descartaremos ya que en una distribución exponencial, la varianza es igual al cuadrado de la media, y no se corresponde con lo que hemos obtenido en el análisis descriptivo de los datos realizado en el apartado anterior.
+
+### 3. Ajustar los datos a las distribuciones seleccionadas (al menos dos distribuciones).
+
+[**Ajuste Distribución de Pareto**]{.underline}
+
+```{r}
+fitp<- fitdist(tiempo, "pareto")
+fitp
+plot(fitp,histo=FALSE,demp=TRUE)
+```
+
+Obtenemos los parámetros estimados $\hat{\alpha}=15253207$ y $\hat{\lambda}=61429191$. En las gráficas se puede observar que la distribución de Pareto no se ajusta bien para la función de densidad. Además, podemos ver que este ajuste tampoco nos da buenos resultados en la gráfica Q-Q plot.
+
+[**Ajuste Distribución log-normal**]{.underline}
+
+```{r}
+fitln <- fitdist(tiempo, "lnorm")
+fitln
+plot(fitln,histo=FALSE,demp=TRUE)
+```
+
+Obtenemos los parámetros estimados $\hat{\mu}=1.119946$ y $\hat{\sigma}=0.805237$. En las gráficas se puede observar que la distribución log-normal no se ajusta bien para la función de densidad, aunque parece que obtenemos mejores resultados que para la distribución de Pareto. Además, podemos ver que este ajuste tampoco nos da buenos resultados en la gráfica Q-Q plot.
+
+[**Ajuste Distribución de Weibull**]{.underline}
+
+```{r}
+fitw <- fitdist(tiempo, "weibull")
+fitw
+plot(fitw,histo=FALSE,demp=TRUE)
+```
+
+Obtenemos los parámetros estimados $\hat{\gamma}=1.468129$ y $\hat{c}=4.464922$. En las gráficas se puede observar que la distribución de Weibull se ajusta mejor para la función de densidad que las dos distribuciones que vimos anteriormente. Además, el gráfico Q-Q plot muestra que la distribución de Weibull proporciona un mejor ajuste que las distribuciones de Pareto y log-normal.
+
+### 4. Análisis del ajuste (contraste de medidas de bondad y criterios de información).
+
+[Test de Kolmogorov Smirnov]{.underline}
+
+```{r}
+parametrosp<-unname(fitp$estimate)
+ks.test(tiempo, "ppareto", shape=parametrosp[1], scale=parametrosp[2])
+```
+
+En el caso de la distribución de Pareto obtenemos un p-valor menor que 0.05, luego rechazaríamos la hipótesis nula de que los datos siguieran una distribución de Pareto.
+
+```{r}
+parametrosln<-unname(fitln$estimate)
+ks.test(tiempo, "plnorm", meanlog=parametrosln[1], sdlog=parametrosln[2])
+```
+
+En el caso de la distribución log-normal obtenemos también un p-valor menor que 0.05, luego rechazaríamos la hipótesis nula de que los datos siguieran una distribución log-normal.
+
+```{r}
+parametrosw<-unname(fitw$estimate)
+ks.test(tiempo, "pweibull", shape=parametrosw[1], scale=parametrosw[2])
+```
+
+En el caso de la distribución de Weibull obtenemos un p-valor mayor que 0.05, luego no podríamos rechazar la hipótesis nula, por ello se podría decir que los datos siguen una distribución de Weibull.
+
+[Criterios de información]{.underline}
+
+```{r}
+gofstat(list(fitp, fitw, fitln))
+```
+
+En la tabla se muestra que el menor AIC y BIC se obtiene para el ajuste de la distribución de Weibull.
+
+### 5. Conclusión final (seleccionar de forma justificada una de las distribuciones si es posible y cálculo de algún cuantil con su interpretación).
+
+Teniendo en cuenta las gráficas vistas en el apartado 3 y los resultados del apartado 4, donde obteníamos que no podíamos rechazar que los datos siguiesen una distribución de Weibull, y que el menor valor de los criterios de información correspondía tambien al ajuste de la distribución de Weibull, seleccionaremos esta distribución para llevar a cabo el ajuste.
+
+A continuación, calculamos algunos cuantiles de la distribución usada para el  ajuste:
+
+```{r}
+weibull<-qweibull(c(0.9,0.95,0.975,0.99), shape=parametrosw[1],scale = parametrosw[2])
+weibull
+```
+
+Podemos interpretar algunos cuantiles de los calculados. Por ejemplo, los cuantiles del $90\%$ y $99\%$ nos dicen que según la distribución ajustada: 
+
+- El 90% de los usuarios permanecen menos de 7.880124 minutos en la página web, mientras que el 10% restante pasa más tiempo. 
+
+- El 99% de los usuarios pasan menos de 12.635030 minutos en la página web, mientras que el 1% restante permanece más tiempo.
+
+Por otro lado, si calculamos los cuantiles muestrales de los datos, tenemos los siguientes resultados:
+
+```{r}
+experimental<-quantile(tiempo, c(0.9,0.95,0.975,0.99))
+error_weibull<-abs((experimental-weibull)/experimental)
+datos<-data.frame(Experimental=experimental,Weibull=weibull,Error_Relativo=error_weibull)
+print(datos)
+```
+
+Los resultados que obtenemos para los cuantiles del $90\%$, $95\%$ y $97.5\%$ son buenos, pues el error relativo es bajo. Sin embargo, aunque la distribución Weibull nos aporta un buen ajuste general a los datos, para el cuantil $99\%$ se tiene un error relativo mayor, indicando que la distrubución no se ajusta tan bien al final de la cola (como podíamos ver en el gráfico Q-Q plot).
